@@ -36,7 +36,6 @@ def svm_loss_naive(W, X, y, reg):
         loss += margin
         dW[:, y[i]] += -X[i].T
         dW[:, j] += X[i].T
-
   # Right now the loss is a sum over all training examples, but we want it
   # to be an average instead so we divide by num_train.
   loss /= num_train
@@ -73,7 +72,17 @@ def svm_loss_vectorized(W, X, y, reg):
   # Implement a vectorized version of the structured SVM loss, storing the    #
   # result in loss.                                                           #
   #############################################################################
-  pass
+
+  num_train = X.shape[0]
+  scores = X.dot(W)   # 200 x 3073 * 3073 x 10 = 200 x 10
+
+  scores_label = scores[[range(num_train)], y] # 1 x 200
+  loss_array = np.maximum(0, scores - scores_label.T + 1) # 200 x 10
+
+  loss_array[[range(num_train)], y] = 0 # Syi = 0
+
+  loss = np.sum(loss_array) / num_train + reg * np.sum(W * W)
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -88,7 +97,18 @@ def svm_loss_vectorized(W, X, y, reg):
   # to reuse some of the intermediate values that you used to compute the     #
   # loss.                                                                     #
   #############################################################################
-  pass
+
+  loss_array[loss_array > 0] = 1 # 有误差项设置为1
+
+  # label项, 有几个误差项，就有要更新几次
+  loss_array[[range(num_train)], y] = - np.sum(loss_array, 1)
+
+  dW = X.T.dot(loss_array) # 200 x 3073 * 200 x 10 = 3073 x 10
+
+  dW /= num_train
+
+  dW += 2 * reg * W
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
