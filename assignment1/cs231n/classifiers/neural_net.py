@@ -82,9 +82,9 @@ class TwoLayerNet(object):
     #   a1 = np.maximum(0, a1)
     #   scores[i] = np.dot(a1, W2) + b2  # 1 x 11 * 11 x 3 -> 1 x 3
 
-    A1 = np.dot(X, W1) + b1  # 5 x 4 * 4 x 10 -> 5 x 10
-    A1 = np.maximum(0, A1)
-    scores = np.dot(A1, W2) + b2  # 5 x 11 * 11 x 3 -> 5 x 3
+    h1 = np.dot(X, W1) + b1  # 5 x 4 * 4 x 10 -> 5 x 10
+    h1 = np.maximum(0, h1)
+    scores = np.dot(h1, W2) + b2  # 5 x 11 * 11 x 3 -> 5 x 3
     #############################################################################
     #                              END OF YOUR CODE                             #
     #############################################################################
@@ -119,19 +119,22 @@ class TwoLayerNet(object):
     # grads['W1'] should store the gradient on W1, and be a matrix of same size #
     #############################################################################
 
-    scores_probs = np.exp(scores) / np.sum(np.exp(scores), axis=1)[:, np.newaxis]
-    scores_probs[range(N), y] -= 1
-    scores_probs /= N
+    # softmax求导
+    dprobs = np.exp(scores) / np.sum(np.exp(scores), axis=1)[:, np.newaxis]
+    dprobs[range(N), y] -= 1
+    dprobs /= N
 
-    dW2 = np.dot(A1.T, scores_probs)
+    dW2 = np.dot(h1.T, dprobs)
     # dW2 /= N
     dW2 += reg * W2
 
     grads["W2"] = dW2
-    grads["b2"] = np.sum(scores_probs, axis=0)
+    grads["b2"] = np.sum(dprobs, axis=0)
 
-    dh1 = np.dot(scores_probs, W2.T)
-    dh1[A1 <= 0] = 0
+    # 计算A1的偏导数， A1是第二层的输入，所以偏导数 = upstram的偏导数 * W2
+    dh1 = np.dot(dprobs, W2.T)
+    # 只有 > 0 的才有影响
+    dh1[h1 <= 0] = 0
     dW1 = np.dot(X.T, dh1)
     db1 = np.sum(dh1, axis=0)
 
