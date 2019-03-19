@@ -105,7 +105,7 @@ class TwoLayerNet(object):
     current_class_scores = scores[np.arange(N), y]
     loss = np.sum(- current_class_scores + np.log(np.sum(np.exp(scores), axis=1)))
 
-    loss = loss / N + 0.5 * reg * (np.sum(W2 * W2) + 0.5 * np.sum(W1 * W1))
+    loss = loss / N + 0.5 * reg * (np.sum(W2 * W2) + np.sum(W1 * W1))
 
     #############################################################################
     #                              END OF YOUR CODE                             #
