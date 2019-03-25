@@ -187,14 +187,22 @@ class FullyConnectedNet(object):
         # parameters should be initialized to zeros.                               #
         ############################################################################
         input_dim_temp = input_dim
-        for k in range(hidden_num):
-            output_dim_temp = hidden_dims[k]
-            self.params["W%d" % (k + 1)] = weight_scale * np.random.randn(input_dim_temp, output_dim_temp)
-            self.params["b%d" % (k + 1)] = np.zeros(output_dim_temp)
+        output_dim_temp = None
+        for i in range(self.num_layers):
+            if i < hidden_num:
+                output_dim_temp = hidden_dims[i]
+            else:
+                output_dim_temp = num_classes
+
+            self.params["W%d" % (i + 1)] = weight_scale * np.random.randn(input_dim_temp, output_dim_temp)
+            self.params["b%d" % (i + 1)] = np.zeros(output_dim_temp)
+
+            if (self.normalization == 'batchnorm' or self.normalization == 'layernorm') and i != self.num_layers - 1 :
+                self.params['beta%d' % (i + 1)] = np.zeros(output_dim_temp)
+                self.params['gamma%d' % (i + 1)] = np.ones(output_dim_temp)
+
             input_dim_temp = output_dim_temp
 
-        self.params["W%d" % (hidden_num + 1)] = weight_scale * np.random.randn(hidden_dims[hidden_num - 1], num_classes)
-        self.params["b%d" % (hidden_num + 1)] = np.zeros(num_classes)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -260,7 +268,16 @@ class FullyConnectedNet(object):
             W = self.params["W%d" % (i + 1)]
             b = self.params["b%d" % (i + 1)]
             if i < self.num_layers - 1:
-                X_temp, cache = affine_relu_forward(X_temp, W, b)
+                if self.normalization == 'batchnorm':
+                    gamma = self.params["gamma%d" % (i + 1)]
+                    beta = self.params["beta%d" % (i + 1)]
+                    X_temp, cache = affine_bn_relu_forward(X_temp, W, b, gamma, beta, self.bn_params[i])
+                elif self.normalization == 'layernorm':
+                    gamma = self.params["gamma%d" % (i + 1)]
+                    beta = self.params["beta%d" % (i + 1)]
+                    X_temp, cache = affine_ln_relu_forward(X_temp, W, b, gamma, beta, self.bn_params[i])
+                else:
+                    X_temp, cache = affine_relu_forward(X_temp, W, b)
             else:
                 scores, cache = affine_forward(X_temp, W, b)
             caches.append(cache)
@@ -296,12 +313,22 @@ class FullyConnectedNet(object):
         for i in sorted(range(self.num_layers), reverse=True):
 
             W = self.params["W%d" % (i + 1)]
+
             if i == self.num_layers - 1:
                 dX, dW, db = affine_backward(dX, caches[i])
                 dW += self.reg * W
 
             else:
-                dX, dW, db = affine_relu_backward(dX, caches[i])
+                if self.normalization == 'batchnorm':
+                    dX, dW, db, dgamma, dbeta= affine_bn_relu_backward(dX, caches[i])
+                    grads['gamma%d' % (i + 1)] = dgamma
+                    grads['beta%d' % (i + 1)] = dbeta
+                elif self.normalization == 'layernorm':
+                    dX, dW, db, dgamma, dbeta= affine_ln_relu_backward(dX, caches[i])
+                    grads['gamma%d' % (i + 1)] = dgamma
+                    grads['beta%d' % (i + 1)] = dbeta
+                else:
+                    dX, dW, db = affine_relu_backward(dX, caches[i])
                 dW += self.reg * W
 
             grads["W%d" % (i + 1)] = dW
@@ -309,5 +336,4 @@ class FullyConnectedNet(object):
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
-
         return loss, grads
